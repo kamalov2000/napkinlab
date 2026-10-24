@@ -1,8 +1,11 @@
 import http from 'k6/http';
 import { check } from 'k6';
+import { SharedArray } from 'k6/data';
 import { BASE_URL, scenario, summary } from './lib.js';
 
-const codes = open('/results/sample_codes.txt').split('\n').map((s) => s.trim()).filter(Boolean);
+// SharedArray keeps one copy of the codes for all VUs, even with 100k codes in the sample.
+const codes = new SharedArray('codes', () =>
+  open('/results/sample_codes.txt').split('\n').map((s) => s.trim()).filter(Boolean));
 if (codes.length === 0) {
   throw new Error('results/sample_codes.txt is empty: run `make seed` first');
 }

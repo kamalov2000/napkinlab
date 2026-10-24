@@ -8,6 +8,7 @@ x-db-env: &db-env
 services:
   postgres:
     image: postgres:16-alpine
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "track_io_timing=on"]
     environment: *db-env
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -56,6 +57,7 @@ services:
     profiles: ["tools"]
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-napkin}:${POSTGRES_PASSWORD:-napkin}@postgres:5432/${POSTGRES_DB:-napkin}
+      SEED_SAMPLE: ${SEED_SAMPLE:-20}
     volumes:
       - ./results:/results
     depends_on:

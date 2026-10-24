@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 const (
 	alphabet  = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	batchSize = 100_000
-	sampleN   = 20
 )
 
 func base62(n int64) string {
@@ -51,22 +51,38 @@ func (r *rows) Err() error { return nil }
 func main() {
 	n := flag.Int64("n", 1_000_000, "number of rows to insert")
 	out := flag.String("out", "/results/sample_codes.txt", "file for sampled codes")
+	sampleOnly := flag.Bool("sample-only", false, "only rewrite the sample file, insert nothing")
 	flag.Parse()
 
-	if err := run(*n, *out); err != nil {
-		fmt.Fprintln(os.Stderr, "seed:", err)
-		os.Exit(1)
+	// SEED_SAMPLE sets how many random codes go to the sample file.
+	sampleN := 20
+	if v, err := strconv.Atoi(os.Getenv("SEED_SAMPLE")); err == nil && v > 0 {
+		sampleN = v
 	}
-}
 
-func run(n int64, out string) error {
 	ctx := context.Background()
 	conn, err := pgx.Connect(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
-		return err
+		fail(err)
 	}
 	defer conn.Close(ctx)
 
+	if !*sampleOnly {
+		if err := seed(ctx, conn, *n); err != nil {
+			fail(err)
+		}
+	}
+	if err := sample(ctx, conn, sampleN, *out); err != nil {
+		fail(err)
+	}
+}
+
+func fail(err error) {
+	fmt.Fprintln(os.Stderr, "seed:", err)
+	os.Exit(1)
+}
+
+func seed(ctx context.Context, conn *pgx.Conn, n int64) error {
 	var start int64
 	if err := conn.QueryRow(ctx, "SELECT COALESCE(MAX(id), 0) + 1 FROM urls").Scan(&start); err != nil {
 		return err
@@ -92,7 +108,7 @@ func run(n int64, out string) error {
 
 	var total int64
 	var size string
-	err = conn.QueryRow(ctx,
+	err := conn.QueryRow(ctx,
 		"SELECT count(*), pg_size_pretty(pg_total_relation_size('urls')) FROM urls").Scan(&total, &size)
 	if err != nil {
 		return err
@@ -100,17 +116,23 @@ func run(n int64, out string) error {
 	fmt.Printf("done in %.1fs\n", time.Since(began).Seconds())
 	fmt.Printf("rows:       %d\n", total)
 	fmt.Printf("table size: %s\n", size)
+	return nil
+}
 
-	// Sample random existing ids through the primary key: cheap even without an index on code.
+// sample picks random existing ids through the primary key: cheap even without an index on code.
+func sample(ctx context.Context, conn *pgx.Conn, n int, out string) error {
 	var maxID int64
-	if err := conn.QueryRow(ctx, "SELECT MAX(id) FROM urls").Scan(&maxID); err != nil {
+	if err := conn.QueryRow(ctx, "SELECT COALESCE(MAX(id), 0) FROM urls").Scan(&maxID); err != nil {
 		return err
 	}
-	ids := make([]int64, 0, sampleN*2)
-	for range sampleN * 2 {
+	if maxID == 0 {
+		return fmt.Errorf("urls is empty, run `make seed` first")
+	}
+	ids := make([]int64, 0, n*2)
+	for range n * 2 {
 		ids = append(ids, rand.Int64N(maxID)+1)
 	}
-	res, err := conn.Query(ctx, "SELECT code FROM urls WHERE id = ANY($1) LIMIT $2", ids, sampleN)
+	res, err := conn.Query(ctx, "SELECT code FROM urls WHERE id = ANY($1) ORDER BY random() LIMIT $2", ids, n)
 	if err != nil {
 		return err
 	}

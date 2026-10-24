@@ -8,6 +8,10 @@
 # env
 .env
 
+# paid layer and its archive live outside the public repo
+pro/
+dist/
+
 # results
 results/*
 !results/.gitkeep

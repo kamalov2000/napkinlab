@@ -11,10 +11,10 @@ COMPOSE  := docker compose
 PSQL     := $(COMPOSE) exec -T postgres sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -tA -c "$$0"'
 RUN_AS   := --user $$(id -u):$$(id -g)
 
-.PHONY: help up down logs seed estimate load-read load-write stage1 report check clean
+.PHONY: help up down logs seed sample estimate load-read load-write stage1 report check clean
 
 help: ## показать список целей
-	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
+	@grep -hE '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
 
 .env:
 	@cp .env.example .env
@@ -31,6 +31,9 @@ logs: ## логи всех контейнеров (Ctrl+C — выход)
 
 seed: .env ## вставить N записей через COPY (по умолчанию N=1000000)
 	@$(COMPOSE) run --rm --build $(RUN_AS) seed -n $(N)
+
+sample: .env ## пересоздать results/sample_codes.txt без пересева: make sample N=100000
+	@$(COMPOSE) run --rm --build $(RUN_AS) -e SEED_SAMPLE=$(if $(filter command line,$(origin N)),$(N),20) seed -sample-only
 
 estimate: ## записать оценку до замера: make estimate RPS=500 P95=20 WHY="..."
 	@if [ -z "$(RPS)" ] || [ -z "$(P95)" ] || [ -z "$(WHY)" ]; then \
@@ -66,3 +69,5 @@ check: ## проверить, что стадия 1 выполнена (PASS/FAI
 clean: ## удалить контейнеры, volumes и results (кроме .gitkeep)
 	@$(COMPOSE) --profile tools down -v --remove-orphans
 	@find results -type f ! -name .gitkeep -delete
+
+-include pro/Makefile.pro

@@ -162,4 +162,8 @@ func (s *Server) metricsHandler(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprintf(w, "cache_hits_total %d\n", s.metrics.CacheHits.Load())
 	fmt.Fprintf(w, "cache_misses_total %d\n", s.metrics.CacheMisses.Load())
 	fmt.Fprintf(w, "db_errors_total %d\n", s.metrics.DBErrors.Load())
+	ps := s.store.Stats()
+	fmt.Fprintf(w, "db_pool_acquire_wait_ms_total %d\n", ps.AcquireWaitMs)
+	fmt.Fprintf(w, "db_pool_waiting %d\n", ps.Waiting)
+	fmt.Fprintf(w, "db_pool_in_use %d\n", ps.InUse)
 }
