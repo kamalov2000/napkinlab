@@ -1,0 +1,13 @@
+# Go
+*.exe
+*.test
+*.out
+/api/api
+/seed/seed
+
+# env
+.env
+
+# results
+results/*
+!results/.gitkeep

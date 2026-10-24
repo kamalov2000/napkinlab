@@ -1,0 +1,75 @@
+name: napkinlab
+
+x-db-env: &db-env
+  POSTGRES_USER: ${POSTGRES_USER:-napkin}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-napkin}
+  POSTGRES_DB: ${POSTGRES_DB:-napkin}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: *db-env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-napkin}:${POSTGRES_PASSWORD:-napkin}@postgres:5432/${POSTGRES_DB:-napkin}
+      REDIS_ADDR: redis:6379
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
+      REDIRECT_STATUS: ${REDIRECT_STATUS:-302}
+      CACHE: ${CACHE:-off}
+      CACHE_TTL: ${CACHE_TTL:-3600s}
+      DB_POOL: ${DB_POOL:-10}
+      LOG_REQUESTS: ${LOG_REQUESTS:-off}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # One-shot tools, started only via `docker compose run`.
+  seed:
+    build: ./seed
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-napkin}:${POSTGRES_PASSWORD:-napkin}@postgres:5432/${POSTGRES_DB:-napkin}
+    volumes:
+      - ./results:/results
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  k6:
+    image: grafana/k6:0.55.0
+    profiles: ["tools"]
+    environment:
+      BASE_URL: http://api:8080
+    volumes:
+      - ./load:/load:ro
+      - ./results:/results
+
+volumes:
+  pgdata:

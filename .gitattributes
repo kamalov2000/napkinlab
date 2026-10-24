@@ -1,0 +1,2 @@
+# Shell scripts and Makefile must keep LF even when cloned on Windows.
+* text=auto eol=lf
