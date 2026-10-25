@@ -1,102 +1,102 @@
-# 01 — оценка на салфетке (стадия 1)
+# 01 — the napkin estimate (stage 1)
 
-Сначала считаем, потом меряем. Порядок важен: оценка, записанная после замера, ничему не учит.
-Метод — глава 2 книги Алекса Сюя «System Design Interview» (back-of-the-envelope estimation),
-система — сокращатель ссылок из главы 8.
+Estimate first, measure second. The order matters: an estimate written down after the measurement
+teaches you nothing. The method is chapter 2 of Alex Xu's *System Design Interview*
+(back-of-the-envelope estimation); the system is the URL shortener from chapter 8.
 
-## 1. Исходные допущения
+## 1. Assumptions
 
-Заполните своими числами (в скобках — значения по умолчанию):
+Fill in your own numbers (defaults in parentheses):
 
-| Параметр | Значение |
+| Parameter | Value |
 |---|---|
-| DAU — пользователей в день | ____ |
-| Действий на пользователя в день | ____ |
-| Доля чтений к записям | ____ (10:1) |
-| Средний размер записи | ____ (100 байт: код + длинная ссылка + служебные поля) |
-| Срок хранения | ____ (10 лет) |
+| DAU — users per day | ____ |
+| Actions per user per day | ____ |
+| Read-to-write ratio | ____ (10:1) |
+| Average record size | ____ (100 bytes: code + long URL + bookkeeping fields) |
+| Retention | ____ (10 years) |
 
-## 2. Расчёт
+## 2. The arithmetic
 
-Формулы:
+Formulas:
 
-- средний RPS = DAU × действий / 86 400 (секунд в сутках; для прикидки ≈ 10⁵);
-- пиковый RPS = средний × 2;
-- записей в день = DAU × действий × доля записей;
-- объём за год = записей в день × 365 × размер записи.
+- average RPS = DAU × actions / 86,400 (seconds per day; ≈ 10⁵ for a rough estimate);
+- peak RPS = average × 2;
+- writes per day = DAU × actions × write share;
+- volume per year = writes per day × 365 × record size.
 
-### Пример A: DAU = 1 млн, 1 переход в день
+### Example A: DAU = 1 million, 1 click per day
 
-- средний RPS = 1 000 000 × 1 / 86 400 ≈ **12 RPS**;
-- пиковый ≈ **23 RPS**;
-- при 10:1 записей ≈ 1/11 от всех действий → ~91 000 в день, ~1 запись/с;
-- объём за год ≈ 91 000 × 365 × 100 Б ≈ **3,3 ГБ**.
+- average RPS = 1,000,000 × 1 / 86,400 ≈ **12 RPS**;
+- peak ≈ **23 RPS**;
+- at 10:1, writes ≈ 1/11 of all actions → ~91,000 per day, ~1 write/s;
+- volume per year ≈ 91,000 × 365 × 100 B ≈ **3.3 GB**.
 
-Вывод: такую нагрузку выдержит одна база на ноутбуке с огромным запасом.
+Conclusion: a single database on a laptop handles this with a huge margin.
 
-### Пример B: как у Сюя — 100 млн новых ссылок в день
+### Example B: Xu's numbers — 100 million new links per day
 
-- записей/с = 100 000 000 / 86 400 ≈ **1 160 записей/с**;
-- чтений при 10:1 ≈ **11 600 чтений/с**;
-- записей за 10 лет = 100 млн × 365 × 10 = 365 млрд;
-- объём за 10 лет ≈ 365 млрд × 100 Б ≈ **36,5 ТБ**.
+- writes/s = 100,000,000 / 86,400 ≈ **1,160 writes/s**;
+- reads at 10:1 ≈ **11,600 reads/s**;
+- records over 10 years = 100 M × 365 × 10 = 365 billion;
+- volume over 10 years ≈ 365 billion × 100 B ≈ **36.5 TB**.
 
-Вывод: это уже не одна машина — шардирование, кэш, отдельный генератор id.
+Conclusion: no longer one machine — sharding, a cache, a separate ID generator.
 
-### Ваш расчёт
+### Your estimate
 
 ```
-средний RPS   = ____ × ____ / 86 400 = ____
-пиковый RPS   = ____
-записей в день = ____
-объём за год  = ____
+average RPS    = ____ × ____ / 86,400 = ____
+peak RPS       = ____
+writes per day = ____
+volume per year = ____
 ```
 
-## 3. Ставка до замера
+## 3. The bet — before measuring
 
-Три значения, которые нужно записать **до** запуска нагрузки:
+Three values you write down **before** starting the load:
 
-- `target_rps` — какой RPS чтения стенд на ноутбуке должен выдержать (например, 500);
-- `expected_p95_ms` — какую p95-задержку вы ожидаете при этом RPS (например, 20);
-- `expected_result` — одно предложение: «выдержит / не выдержит и почему».
+- `target_rps` — what read RPS the stand on your laptop should sustain (e.g. 500);
+- `expected_p95_ms` — what p95 latency you expect at that RPS (e.g. 20);
+- `expected_result` — one sentence: "will hold / won't hold, and why".
 
-Подсказка, о чём подумать: в таблице 1 млн строк, `GET /{code}` ищет строку по `code`.
-Сколько строк Postgres прочитает на один запрос? Сколько таких запросов одновременно может
-выполнять пул из 10 соединений?
+Something to think about: the table has 1 million rows and `GET /{code}` looks a row up by `code`.
+How many rows will Postgres read per request? How many such requests can a pool of 10 connections
+run at once?
 
-Записываем:
+Write it down:
 
 ```bash
-make estimate RPS=500 P95=20 WHY="выдержит: запрос простой, данных всего миллион"
+make estimate RPS=500 P95=20 WHY="will hold: simple query, only a million rows"
 ```
 
-Команда создаёт `results/estimate.json`.
+The command creates `results/estimate.json`.
 
-## 4. Запуск
+## 4. Run
 
 ```bash
 make stage1
 ```
 
-Это `up` → `seed` (если таблица пустая) → `load/read.js` с RATE = target_rps на 60 секунд → `report`.
+This is `up` → `seed` (if the table is empty) → `load/read.js` with RATE = target_rps for 60 seconds → `report`.
 
-## 5. Результат
+## 5. Result
 
-`make report` печатает таблицу:
-
-```
-target_rps   | фактический RPS | p95, мс    | p99, мс    | доля ошибок
-```
-
-и строку «Оценка vs факт: …». Если p95 больше ожидаемого или ошибок больше 1% —
-«Оценка не сошлась. Почему — стадия 2 и 3».
-
-Не сошлось — это нормальный исход стадии 1, а не поломка стенда. Запишите здесь,
-во сколько раз ошиблись и какая у вас первая гипотеза:
+`make report` prints a table:
 
 ```
-ошибся в ____ раз по p95
-гипотеза: ____
+target_rps   | actual RPS      | p95, ms    | p99, ms    | error rate
 ```
 
-`make check` проверяет, что стадия пройдена.
+and a line "Estimate vs. fact: …". If p95 is above what you expected or errors exceed 1% —
+"The estimate did not hold. Why — stages 2 and 3."
+
+Not holding is the normal outcome of stage 1, not a broken stand. Write down here by how much
+you were off and what your first hypothesis is:
+
+```
+off by ____× on p95
+hypothesis: ____
+```
+
+`make check` verifies that the stage is complete.

@@ -1,70 +1,76 @@
 # napkinlab
 
-Учебная лаборатория по нагрузке. Вы оцениваете нагрузку «на салфетке» по методу из главы 2
-книги Алекса Сюя «System Design Interview», затем запускаете реальную нагрузку на стенд у себя
-на ноутбуке и сравниваете оценку с замером. Первая система — сокращатель ссылок из главы 8.
-Подойдёт тем, кто прочитал про back-of-the-envelope оценки и хочет проверить, насколько его цифры
-совпадают с поведением живой системы.
+A hands-on load-testing lab. You estimate the load "on a napkin" using the method from chapter 2
+of Alex Xu's *System Design Interview*, then run real load against a stand on your own laptop and
+compare the estimate with the measurement. The first system is the URL shortener from chapter 8.
 
-Кому не подойдёт: тем, у кого нет Docker.
+For people who have read about back-of-the-envelope estimation and want to find out how well their
+numbers match the behaviour of a live system.
 
-## Требования
+Not for you if you don't have Docker.
 
-- Docker Desktop с WSL2 (или Docker на Linux/macOS);
-- 4 ГБ свободной памяти;
-- `make` (и `bash` — в WSL, Linux, macOS и Git Bash он есть).
+[Русская версия README](README.ru.md)
 
-## Быстрый старт
+## Requirements
+
+- Docker Desktop with WSL2 (or Docker on Linux/macOS);
+- 4 GB of free memory;
+- `make` (and `bash` — present in WSL, Linux, macOS and Git Bash).
+
+## Quick start
 
 ```bash
 make up
 make seed N=1000000
-make estimate RPS=500 P95=20 WHY="выдержит: запрос простой, данных всего миллион"
+make estimate RPS=500 P95=20 WHY="will hold: simple query, only a million rows"
 make stage1
 make check
 ```
 
-`make help` — список всех целей. Подробнее о запуске — [lab/00-start.md](lab/00-start.md).
+`make help` lists every target. Details on running the stand — [lab/00-start.md](lab/00-start.md).
 
-## Стадия 1: оценка против замера
+## Stage 1: estimate vs. measurement
 
-Стенд: Go-сервис (`POST /shorten`, `GET /{code}` → редирект), PostgreSQL с миллионом ссылок,
-Redis (кэш выключен), k6 для нагрузки. Всё в Docker Compose.
+The stand: a Go service (`POST /shorten`, `GET /{code}` → redirect), PostgreSQL with a million
+links, Redis (cache off), k6 for load. Everything in Docker Compose.
 
-Вы заполняете рабочий лист [lab/01-estimate.md](lab/01-estimate.md): считаете RPS и объём данных
-и до запуска записываете ставку — какой RPS выдержит стенд и какая будет p95-задержка.
-`make stage1` даёт нагрузку чтения с этим RPS на 60 секунд и печатает сравнение. Пример `make report`:
+You fill in the worksheet [lab/01-estimate.md](lab/01-estimate.md): compute RPS and data volume,
+and **before** running anything write down your bet — what RPS the stand will sustain and what the
+p95 latency will be. `make stage1` sends read load at that RPS for 60 seconds and prints the
+comparison. Example `make report`:
 
 ```
-Стадия 1 — оценка против замера   (results/read_500rps_20261024T190524.json)
+Stage 1 — estimate vs. measurement   (results/read_500rps_20261024T190524.json)
 
-target_rps | фактический RPS | p95, мс    | p99, мс    | доля ошибок
+target_rps | actual RPS      | p95, ms    | p99, ms    | error rate
 -----------+-----------------+------------+------------+------------
 500        | 24.14           | 20979.81   | 21199.99   | 0.00%
 
-Ожидание:  p95 ≤ 20 мс при 500 RPS — «выдержит: запрос простой, данных всего миллион»
-Пропущено итераций k6 (не хватило VU): 28077
-Оценка vs факт: p95 20979.8 мс против ожидаемых 20 мс (в 1049 раз больше); фактический RPS 24.1 ниже целевого 500
-Оценка не сошлась. Почему — стадия 2 и 3.
+Expected:  p95 ≤ 20 ms at 500 RPS — "will hold: simple query, only a million rows"
+Dropped k6 iterations (ran out of VUs): 28077
+Estimate vs. fact: p95 20979.8 ms against expected 20 ms (1049× higher); actual RPS 24.1 below target 500
+The estimate did not hold. Why — stages 2 and 3.
 ```
 
-Расхождение — ожидаемый исход, а не поломка. В конце стадии у вас есть своя оценка, замер
-и конкретный вопрос: почему они разошлись.
+The gap is the expected outcome, not a broken stand. At the end of the stage you have your own
+estimate, a measurement, and one concrete question: why do they differ?
 
-## Стадии 2–5
+## Stages 2–5
 
-Во второй стадии вы ищете предел системы — RPS, при котором задержка начинает расти; в третьей
-диагностируете узкое место по метрикам и плану запроса; в четвёртой вносите ровно одно изменение;
-в пятой повторяете замер и проверяете, подтвердило ли оно ваше объяснение.
+In stage 2 you find the system's limit — the RPS at which latency starts to climb; in stage 3 you
+diagnose the bottleneck from metrics and the query plan; in stage 4 you make exactly one change;
+in stage 5 you measure again and check whether the result confirms your explanation.
 
-Доступ к стадиям 2–5 — 990 ₽, оплата через Tribute: https://web.tribute.tg/p/I4T
-После оплаты приходит ссылка на архив с папкой pro/; кладёте её в корень этого репозитория — в make help появляются новые цели.
+Access to stages 2–5 — $19, one-time: <PAYMENT_LINK>
+After payment you get an archive with a `pro/` folder; drop it into the root of this repository and
+`make help` shows the new targets. (Покупателям из России — через Tribute, 990 ₽: https://web.tribute.tg/p/I4T)
 
-## Оговорка
+## Caveat
 
-Замер на ноутбуке не переносится на прод: другое железо, сеть, конфигурация базы и соседние
-процессы. Цель — увидеть связь между оценкой и поведением системы, а не получить абсолютные цифры.
+Numbers from a laptop do not transfer to production: different hardware, network, database
+configuration and neighbouring processes. The goal is to see the link between an estimate and
+the system's behaviour, not to obtain absolute figures.
 
-## Лицензия
+## License
 
-MIT, см. [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

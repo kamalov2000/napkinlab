@@ -4,4 +4,4 @@ CREATE TABLE urls (
   long_url   TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- ВАЖНО: индекса по code нет. Это намеренно: узкое место для стадии 3.
+-- IMPORTANT: there is no index on code. This is intentional: it is the bottleneck for stage 3.

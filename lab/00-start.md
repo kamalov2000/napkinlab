@@ -1,20 +1,20 @@
-# 00 — запуск стенда
+# 00 — starting the stand
 
-## Что нужно
-- Docker Desktop (Windows: с бэкендом WSL2) или Docker на Linux/macOS.
-- `make` и `bash` (в WSL, Linux, macOS или Git Bash они есть).
-- ~4 ГБ свободной памяти, ~1 ГБ диска.
+## What you need
+- Docker Desktop (Windows: with the WSL2 backend) or Docker on Linux/macOS.
+- `make` and `bash` (present in WSL, Linux, macOS or Git Bash).
+- ~4 GB of free memory, ~1 GB of disk.
 
-## Шаги
+## Steps
 ```bash
-make up                      # postgres, redis, api — ждём healthy
-make seed N=1000000          # миллион ссылок, 1–2 минуты
-curl -X POST localhost:8080/shorten -d '{"url":"https://habr.com"}'
-curl -I localhost:8080/<code из ответа>
+make up                      # postgres, redis, api — wait for healthy
+make seed N=1000000          # a million links, 1–2 minutes
+curl -X POST localhost:8080/shorten -d '{"url":"https://example.com"}'
+curl -I localhost:8080/<code from the response>
 ```
 
-## Что должно получиться
-`make up` заканчивается таблицей из трёх контейнеров, у всех в STATUS `(healthy)`:
+## What you should see
+`make up` ends with a table of three containers, all with `(healthy)` in STATUS:
 
 ```
 NAME                   SERVICE    STATUS
@@ -23,16 +23,16 @@ napkinlab-postgres-1   postgres   Up ... (healthy)
 napkinlab-redis-1      redis      Up ... (healthy)
 ```
 
-`make seed` печатает прогресс каждые 100 000 строк, в конце — число строк, размер таблицы
-и пишет 20 случайных кодов в `results/sample_codes.txt`.
+`make seed` prints progress every 100,000 rows; at the end — the row count, the table size,
+and it writes 20 random codes to `results/sample_codes.txt`.
 
-`curl -I` возвращает `HTTP/1.1 302 Found` и заголовок `Location` с исходной ссылкой.
+`curl -I` returns `HTTP/1.1 302 Found` with a `Location` header carrying the original URL.
 
-Счётчики сервиса: `curl localhost:8080/metrics`.
+Service counters: `curl localhost:8080/metrics`.
 
-## Если что-то не так
-- `make logs` — логи всех контейнеров.
-- Порт 8080 занят — поменяйте `API_PORT` в `.env`.
-- Начать с нуля — `make clean`, затем снова `make up`.
+## If something is off
+- `make logs` — logs of all containers.
+- Port 8080 is taken — change `API_PORT` in `.env`.
+- Start from scratch — `make clean`, then `make up` again.
 
-Дальше — [01-estimate.md](01-estimate.md).
+Next — [01-estimate.md](01-estimate.md).
