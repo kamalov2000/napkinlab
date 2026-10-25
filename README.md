@@ -61,9 +61,9 @@ In stage 2 you find the system's limit — the RPS at which latency starts to cl
 diagnose the bottleneck from metrics and the query plan; in stage 4 you make exactly one change;
 in stage 5 you measure again and check whether the result confirms your explanation.
 
-Access to stages 2–5 — $19, one-time: <PAYMENT_LINK>
-After payment you get an archive with a `pro/` folder; drop it into the root of this repository and
-`make help` shows the new targets. (Покупателям из России — через Tribute, 990 ₽: https://web.tribute.tg/p/I4T)
+Access to stages 2–5 — $19, one-time, card payment: https://web.tribute.tg/p/I5O
+After payment you get a link to an archive with a `pro/` folder; drop it into the root of this
+repository and `make help` shows the new targets. (Для России — 990 ₽: https://web.tribute.tg/p/I4T)
 
 ## Caveat
 
